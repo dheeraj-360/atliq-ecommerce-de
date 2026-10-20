@@ -1,4 +1,4 @@
-# AtliQ Commerce — End-to-End Data Engineering Capstone
+# AtliQ Commerce - End-to-End Data Engineering Capstone
 
 An Azure-based end-to-end Data Engineering project that builds a scalable analytics pipeline for a fictional e-commerce business.
 
