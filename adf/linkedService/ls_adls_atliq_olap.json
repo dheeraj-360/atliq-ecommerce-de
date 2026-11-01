@@ -1,0 +1,12 @@
+{
+	"name": "ls_adls_atliq_olap",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "Connection to target OLAP ",
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://saatliqcommerce01dl.dfs.core.windows.net/"
+		}
+	}
+}

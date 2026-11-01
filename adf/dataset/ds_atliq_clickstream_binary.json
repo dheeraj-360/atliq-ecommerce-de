@@ -1,0 +1,28 @@
+{
+	"name": "ds_atliq_clickstream_binary",
+	"properties": {
+		"description": "click stream JSON files",
+		"linkedServiceName": {
+			"referenceName": "ls_adls_atliq_olap",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"folder_path": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": {
+					"value": "@dataset().folder_path",
+					"type": "Expression"
+				},
+				"fileSystem": "lakehouse"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

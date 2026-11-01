@@ -1,0 +1,32 @@
+{
+	"name": "ds_atliq_commerce_oltp_src",
+	"properties": {
+		"description": "Source Dataset Azure SQL DB",
+		"linkedServiceName": {
+			"referenceName": "ls_azuresql_atliq_oltp",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"schema": {
+				"type": "string"
+			},
+			"table_name": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": {
+				"value": "@dataset().schema",
+				"type": "Expression"
+			},
+			"table": {
+				"value": "@dataset().table_name",
+				"type": "Expression"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

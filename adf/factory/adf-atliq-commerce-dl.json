@@ -1,0 +1,15 @@
+{
+	"name": "adf-atliq-commerce-dl",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "0fe723df-41f9-46ef-9b29-1bcc296e3042",
+		"tenantId": "78588a59-0b03-46d6-a89f-7240d5fa6c04"
+	}
+}
