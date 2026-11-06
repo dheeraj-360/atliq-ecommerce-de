@@ -156,7 +156,8 @@
 													"folder_path": {
 														"value": "@concat(\n    'bronze/',\n    item().table_name,\n    '/ingest_date=',\n    formatDateTime(variables('run_start_at'), 'yyyy-MM-dd')\n)",
 														"type": "Expression"
-													}
+													},
+													"table_name": "@item().table_name"
 												}
 											}
 										]
