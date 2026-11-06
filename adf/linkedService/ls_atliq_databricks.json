@@ -1,0 +1,12 @@
+{
+	"name": "ls_atliq_databricks",
+	"properties": {
+		"annotations": [],
+		"type": "AzureDatabricks",
+		"typeProperties": {
+			"domain": "https://adb-7405613364820292.12.azuredatabricks.net",
+			"authentication": "MSI",
+			"workspaceResourceId": "/subscriptions/c70170c9-adda-4c13-811b-2acef4163e80/resourceGroups/rg-atliq-capstone-dl/providers/Microsoft.Databricks/workspaces/adb-atliq-commerce-dl"
+		}
+	}
+}
