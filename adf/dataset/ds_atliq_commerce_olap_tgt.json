@@ -8,6 +8,9 @@
 		"parameters": {
 			"folder_path": {
 				"type": "string"
+			},
+			"table_name": {
+				"type": "string"
 			}
 		},
 		"annotations": [],
