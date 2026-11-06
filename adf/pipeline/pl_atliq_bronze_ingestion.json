@@ -270,6 +270,10 @@
 													"folder_path": {
 														"value": "@concat('bronze/', item().table_name)",
 														"type": "Expression"
+													},
+													"table_name": {
+														"value": "@item().table_name",
+														"type": "Expression"
 													}
 												}
 											}
