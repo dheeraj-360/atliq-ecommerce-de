@@ -62,6 +62,15 @@
 					"secureInput": false
 				},
 				"userProperties": [],
+				"typeProperties": {
+					"jobId": "862299923903882",
+					"jobParameters": {
+						"run_date": {
+							"value": "@formatDateTime(utcNow(),'yyyy-MM-dd')",
+							"type": "Expression"
+						}
+					}
+				},
 				"linkedServiceName": {
 					"referenceName": "ls_atliq_databricks",
 					"type": "LinkedServiceReference"
