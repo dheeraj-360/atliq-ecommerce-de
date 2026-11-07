@@ -83,7 +83,7 @@
 					"jobId": "862299923903882",
 					"jobParameters": {
 						"run_date": {
-							"value": "@formatDateTime(utcNow(),'yyyy-MM-dd')",
+							"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
 							"type": "Expression"
 						}
 					}
@@ -103,13 +103,16 @@
 				},
 				"userProperties": [],
 				"typeProperties": {
-					"variableName": "master_run_at",
-					"value": "@utcNow()"
+					"variableName": "master_run_start_at",
+					"value": {
+						"value": "@utcNow()",
+						"type": "Expression"
+					}
 				}
 			}
 		],
 		"variables": {
-			"master_run_at": {
+			"master_run_start_at": {
 				"type": "String"
 			}
 		},
