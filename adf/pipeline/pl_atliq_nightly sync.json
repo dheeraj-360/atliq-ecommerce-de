@@ -24,7 +24,10 @@
 						"referenceName": "pl_atliq_bronze_ingestion",
 						"type": "PipelineReference"
 					},
-					"waitOnCompletion": true
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_run_start_at": "@variables('master_run_start_at')"
+					}
 				}
 			},
 			{
