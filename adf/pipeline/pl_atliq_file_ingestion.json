@@ -150,7 +150,7 @@
 											"type": "Expression"
 										},
 										"table_name": {
-											"value": "@replace(item().name,'csv' ,'')",
+											"value": "@replace(item().name,'.csv' ,'')",
 											"type": "Expression"
 										}
 									}
