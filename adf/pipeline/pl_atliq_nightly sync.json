@@ -7,7 +7,14 @@
 				"name": "run_bronze_ingestion",
 				"description": "Runs the bronze ingestion pipeline",
 				"type": "ExecutePipeline",
-				"dependsOn": [],
+				"dependsOn": [
+					{
+						"activity": "set_master_run_start_at",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
 					"secureInput": false
 				},
@@ -23,7 +30,14 @@
 			{
 				"name": "run_file_ingestion",
 				"type": "ExecutePipeline",
-				"dependsOn": [],
+				"dependsOn": [
+					{
+						"activity": "set_master_run_start_at",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
 				"policy": {
 					"secureInput": false
 				},
@@ -75,8 +89,27 @@
 					"referenceName": "ls_atliq_databricks",
 					"type": "LinkedServiceReference"
 				}
+			},
+			{
+				"name": "set_master_run_start_at",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "master_run_at",
+					"value": "@utcNow()"
+				}
 			}
 		],
+		"variables": {
+			"master_run_at": {
+				"type": "String"
+			}
+		},
 		"annotations": []
 	}
 }

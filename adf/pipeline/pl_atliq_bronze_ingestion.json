@@ -286,6 +286,11 @@
 				}
 			}
 		],
+		"parameters": {
+			"p_run_start_at": {
+				"type": "string"
+			}
+		},
 		"variables": {
 			"run_start_at": {
 				"type": "String"
