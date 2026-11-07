@@ -1,0 +1,30 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "adf-atliq-commerce-dl"
+		},
+		"ls_azuresql_atliq_oltp_password": {
+			"value": ""
+		},
+		"ls_adls_atliq_olap_properties_typeProperties_url": {
+			"value": "https://saatliqcommerce01dl.dfs.core.windows.net/"
+		},
+		"ls_azuresql_atliq_oltp_properties_typeProperties_server": {
+			"value": "atliq-capstone-dev-sql-01.database.windows.net"
+		},
+		"ls_azuresql_atliq_oltp_properties_typeProperties_database": {
+			"value": "atliq-commerce-sqldb"
+		},
+		"ls_azuresql_atliq_oltp_properties_typeProperties_userName": {
+			"value": "dheeraj_admin"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}

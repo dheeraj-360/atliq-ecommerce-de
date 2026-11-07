@@ -1,0 +1,934 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "adf-atliq-commerce-dl"
+		},
+		"ls_azuresql_atliq_oltp_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'ls_azuresql_atliq_oltp'"
+		},
+		"ls_adls_atliq_olap_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://saatliqcommerce01dl.dfs.core.windows.net/"
+		},
+		"ls_azuresql_atliq_oltp_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "atliq-capstone-dev-sql-01.database.windows.net"
+		},
+		"ls_azuresql_atliq_oltp_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "atliq-commerce-sqldb"
+		},
+		"ls_azuresql_atliq_oltp_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "dheeraj_admin"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_atliq_bronze_ingestion')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Loading raw data to bronze layer",
+				"activities": [
+					{
+						"name": "set_run_start_at",
+						"description": "pipeline start time ",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "run_start_at",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "lkp_control_table",
+						"description": "checks the metadata in the control table ",
+						"type": "Lookup",
+						"dependsOn": [
+							{
+								"activity": "set_run_start_at",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "ds_atliq_commerce_oltp_src",
+								"type": "DatasetReference",
+								"parameters": {
+									"schema": "etl",
+									"table_name": "control_table"
+								}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "fe_process_tables",
+						"description": "process each table from the lookup activity ",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "lkp_control_table",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('lkp_control_table').output.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "if_load_type",
+									"description": "Checks whether it is Full or Incremental Load",
+									"type": "IfCondition",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@equals(toLower(item().load_type), 'full')",
+											"type": "Expression"
+										},
+										"ifFalseActivities": [
+											{
+												"name": "copy_incremental_load",
+												"description": "This do incremental load",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "AzureSqlSource",
+														"sqlReaderQuery": {
+															"value": "SELECT *\nFROM [@{item().source_schema}].[@{item().table_name}]\nWHERE [@{item().watermark_column}] > '@{item().last_loaded_at}'\n  AND [@{item().watermark_column}] <= '@{variables('run_start_at')}'",
+															"type": "Expression"
+														},
+														"queryTimeout": "02:00:00",
+														"partitionOption": "None"
+													},
+													"sink": {
+														"type": "ParquetSink",
+														"storeSettings": {
+															"type": "AzureBlobFSWriteSettings"
+														},
+														"formatSettings": {
+															"type": "ParquetWriteSettings"
+														}
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "ds_atliq_commerce_oltp_src",
+														"type": "DatasetReference",
+														"parameters": {
+															"schema": {
+																"value": "@item().source_schema",
+																"type": "Expression"
+															},
+															"table_name": {
+																"value": "@item().table_name",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "ds_atliq_commerce_olap_tgt",
+														"type": "DatasetReference",
+														"parameters": {
+															"folder_path": {
+																"value": "@concat(\n    'bronze/',\n    item().table_name,\n    '/ingest_date=',\n    formatDateTime(variables('run_start_at'), 'yyyy-MM-dd')\n)",
+																"type": "Expression"
+															},
+															"table_name": "@item().table_name"
+														}
+													}
+												]
+											},
+											{
+												"name": "sp_update_watermark",
+												"description": "this updates the last updated load",
+												"type": "SqlServerStoredProcedure",
+												"dependsOn": [
+													{
+														"activity": "copy_incremental_load",
+														"dependencyConditions": [
+															"Succeeded"
+														]
+													}
+												],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"storedProcedureName": "[[etl].[usp_update_watermark]",
+													"storedProcedureParameters": {
+														"run_start_at": {
+															"value": {
+																"value": "@variables('run_start_at')",
+																"type": "Expression"
+															},
+															"type": "DateTime"
+														},
+														"table_name": {
+															"value": {
+																"value": "@item().table_name",
+																"type": "Expression"
+															},
+															"type": "String"
+														}
+													}
+												},
+												"linkedServiceName": {
+													"referenceName": "ls_azuresql_atliq_oltp",
+													"type": "LinkedServiceReference"
+												}
+											}
+										],
+										"ifTrueActivities": [
+											{
+												"name": "copy_full_load",
+												"description": "Copies Full load ",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "AzureSqlSource",
+														"queryTimeout": "02:00:00",
+														"partitionOption": "None"
+													},
+													"sink": {
+														"type": "ParquetSink",
+														"storeSettings": {
+															"type": "AzureBlobFSWriteSettings"
+														},
+														"formatSettings": {
+															"type": "ParquetWriteSettings"
+														}
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "ds_atliq_commerce_oltp_src",
+														"type": "DatasetReference",
+														"parameters": {
+															"schema": {
+																"value": "@item().source_schema",
+																"type": "Expression"
+															},
+															"table_name": {
+																"value": "@item().table_name",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "ds_atliq_commerce_olap_tgt",
+														"type": "DatasetReference",
+														"parameters": {
+															"folder_path": {
+																"value": "@concat('bronze/', item().table_name)",
+																"type": "Expression"
+															},
+															"table_name": {
+																"value": "@item().table_name",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											}
+										]
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"p_run_start_at": {
+						"type": "string"
+					}
+				},
+				"variables": {
+					"run_start_at": {
+						"type": "String"
+					},
+					"current_table": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-10-23T07:40:16Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_atliq_commerce_oltp_src')]",
+				"[concat(variables('factoryId'), '/datasets/ds_atliq_commerce_olap_tgt')]",
+				"[concat(variables('factoryId'), '/linkedServices/ls_azuresql_atliq_oltp')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_atliq_file_ingestion')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "CSV files Ingestion",
+				"activities": [
+					{
+						"name": "get_csv_files",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "ds_atliq_landing_csv_src",
+								"type": "DatasetReference",
+								"parameters": {
+									"file_name": {
+										"value": "@string('')",
+										"type": "Expression"
+									}
+								}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings",
+								"skipLineCount": 0
+							}
+						}
+					},
+					{
+						"name": "filter_csv_files",
+						"description": "checks for csv files",
+						"type": "Filter",
+						"dependsOn": [
+							{
+								"activity": "get_csv_files",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('get_csv_files').output.childItems",
+								"type": "Expression"
+							},
+							"condition": {
+								"value": "@and(equals(item().type, 'File'), endsWith(toLower(item().name), '.csv'))",
+								"type": "Expression"
+							}
+						}
+					},
+					{
+						"name": "process_csv_files",
+						"description": "process each csv files",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "filter_csv_files",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('filter_csv_files').output.value",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "copy_csv_to_bronze",
+									"description": "copies csv data to bronze layer",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobFSReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "ParquetSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "ParquetWriteSettings"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "ds_atliq_landing_csv_src",
+											"type": "DatasetReference",
+											"parameters": {
+												"file_name": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "ds_atliq_commerce_olap_tgt",
+											"type": "DatasetReference",
+											"parameters": {
+												"folder_path": {
+													"value": "@concat('bronze/', replace(item().name, '.csv', ''))",
+													"type": "Expression"
+												},
+												"table_name": {
+													"value": "@replace(item().name,'.csv' ,'')",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					},
+					{
+						"name": "copy_clickstream_to_bronze",
+						"description": "This copies JSON files to bronze",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "BinarySource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true
+								},
+								"formatSettings": {
+									"type": "BinaryReadSettings"
+								}
+							},
+							"sink": {
+								"type": "BinarySink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings",
+									"copyBehavior": "PreserveHierarchy"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "ds_atliq_clickstream_binary",
+								"type": "DatasetReference",
+								"parameters": {
+									"folder_path": "landing/clickstream"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "ds_atliq_clickstream_binary",
+								"type": "DatasetReference",
+								"parameters": {
+									"folder_path": "bronze/clickstream"
+								}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-11-01T07:22:28Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/ds_atliq_landing_csv_src')]",
+				"[concat(variables('factoryId'), '/datasets/ds_atliq_clickstream_binary')]",
+				"[concat(variables('factoryId'), '/datasets/ds_atliq_commerce_olap_tgt')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pl_atliq_nightly sync')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Master pipeline",
+				"activities": [
+					{
+						"name": "run_bronze_ingestion",
+						"description": "Runs the bronze ingestion pipeline",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "set_master_run_start_at",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_atliq_bronze_ingestion",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"p_run_start_at": {
+									"value": "@variables('master_run_start_at')",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "run_file_ingestion",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "set_master_run_start_at",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "pl_atliq_file_ingestion",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "Build_Silver",
+						"description": "Run all silver transformations ",
+						"type": "DatabricksJob",
+						"dependsOn": [
+							{
+								"activity": "run_bronze_ingestion",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "run_file_ingestion",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"jobId": "862299923903882",
+							"jobParameters": {
+								"run_date": {
+									"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+									"type": "Expression"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_atliq_databricks",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "set_master_run_start_at",
+						"type": "SetVariable",
+						"dependsOn": [],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "master_run_start_at",
+							"value": {
+								"value": "@utcNow()",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"master_run_start_at": {
+						"type": "String"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_atliq_bronze_ingestion')]",
+				"[concat(variables('factoryId'), '/pipelines/pl_atliq_file_ingestion')]",
+				"[concat(variables('factoryId'), '/linkedServices/ls_atliq_databricks')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_atliq_clickstream_binary')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "click stream JSON files",
+				"linkedServiceName": {
+					"referenceName": "ls_adls_atliq_olap",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"folder_path": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": {
+							"value": "@dataset().folder_path",
+							"type": "Expression"
+						},
+						"fileSystem": "lakehouse"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_atliq_olap')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_atliq_commerce_olap_tgt')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "ls_adls_atliq_olap",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"folder_path": {
+						"type": "string"
+					},
+					"table_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "Parquet",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@concat(dataset().table_name, '.parquet')",
+							"type": "Expression"
+						},
+						"folderPath": {
+							"value": "@dataset().folder_path",
+							"type": "Expression"
+						},
+						"fileSystem": "lakehouse"
+					},
+					"compressionCodec": "snappy"
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_atliq_olap')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_atliq_commerce_oltp_src')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Source Dataset Azure SQL DB",
+				"linkedServiceName": {
+					"referenceName": "ls_azuresql_atliq_oltp",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"schema": {
+						"type": "string"
+					},
+					"table_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schema",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().table_name",
+						"type": "Expression"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_azuresql_atliq_oltp')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ds_atliq_landing_csv_src')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "dataset for reading csv files",
+				"linkedServiceName": {
+					"referenceName": "ls_adls_atliq_olap",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"file_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().file_name",
+							"type": "Expression"
+						},
+						"folderPath": "landing/csv",
+						"fileSystem": "lakehouse"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "spend_date",
+						"type": "String"
+					},
+					{
+						"name": "channel",
+						"type": "String"
+					},
+					{
+						"name": "campaign",
+						"type": "String"
+					},
+					{
+						"name": "spend_amount",
+						"type": "String"
+					},
+					{
+						"name": "clicks",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/ls_adls_atliq_olap')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_adls_atliq_olap')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Connection to target OLAP ",
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('ls_adls_atliq_olap_properties_typeProperties_url')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_atliq_databricks')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureDatabricks",
+				"typeProperties": {
+					"domain": "https://adb-7405613364820292.12.azuredatabricks.net",
+					"authentication": "MSI",
+					"workspaceResourceId": "/subscriptions/c70170c9-adda-4c13-811b-2acef4163e80/resourceGroups/rg-atliq-capstone-dl/providers/Microsoft.Databricks/workspaces/adb-atliq-commerce-dl"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/ls_azuresql_atliq_oltp')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Connection to AtliQ Commerce OLTP source",
+				"annotations": [],
+				"type": "AzureSqlDatabase",
+				"typeProperties": {
+					"server": "[parameters('ls_azuresql_atliq_oltp_properties_typeProperties_server')]",
+					"database": "[parameters('ls_azuresql_atliq_oltp_properties_typeProperties_database')]",
+					"encrypt": "mandatory",
+					"trustServerCertificate": false,
+					"authenticationType": "SQL",
+					"userName": "[parameters('ls_azuresql_atliq_oltp_properties_typeProperties_userName')]",
+					"password": {
+						"type": "SecureString",
+						"value": "[parameters('ls_azuresql_atliq_oltp_password')]"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}
