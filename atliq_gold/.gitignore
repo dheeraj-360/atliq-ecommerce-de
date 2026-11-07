@@ -1,0 +1,10 @@
+
+target/
+dbt_packages/
+logs/
+.env
+
+# Credentials and local configuration
+.env
+.env.*
+profiles.yml
