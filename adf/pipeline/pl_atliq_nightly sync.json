@@ -278,6 +278,23 @@
 					"referenceName": "ls_azuresql_atliq_oltp",
 					"type": "LinkedServiceReference"
 				}
+			},
+			{
+				"name": "fail_pipeline",
+				"type": "Fail",
+				"dependsOn": [
+					{
+						"activity": "audit_run_failed",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"message": "Nightly pipeline failed. Check SQL audit log for details.",
+					"errorCode": "ATLIQ_PIPELINE_FAILED"
+				}
 			}
 		],
 		"variables": {
