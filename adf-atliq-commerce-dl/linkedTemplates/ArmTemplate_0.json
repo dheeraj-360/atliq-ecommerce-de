@@ -808,7 +808,7 @@
 						"type": "ExecutePipeline",
 						"dependsOn": [
 							{
-								"activity": "set_master_run_start_at",
+								"activity": "audit_run_started",
 								"dependencyConditions": [
 									"Succeeded"
 								]
@@ -837,7 +837,7 @@
 						"type": "ExecutePipeline",
 						"dependsOn": [
 							{
-								"activity": "set_master_run_start_at",
+								"activity": "audit_run_started",
 								"dependencyConditions": [
 									"Succeeded"
 								]
@@ -912,6 +912,216 @@
 								"type": "Expression"
 							}
 						}
+					},
+					{
+						"name": "audit_run_started",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "set_master_run_start_at",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[etl].[usp_log_pipeline_run]",
+							"storedProcedureParameters": {
+								"error_message": {
+									"value": null,
+									"type": "String"
+								},
+								"error_stage": {
+									"value": null,
+									"type": "String"
+								},
+								"pipeline_name": {
+									"value": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_date_utc": {
+									"value": {
+										"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_id": {
+									"value": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_status": {
+									"value": "Running",
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_azuresql_atliq_oltp",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "audit_run_succeeded",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Build_Silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[etl].[usp_log_pipeline_run]",
+							"storedProcedureParameters": {
+								"error_message": {
+									"value": null,
+									"type": "String"
+								},
+								"error_stage": {
+									"value": null,
+									"type": "String"
+								},
+								"pipeline_name": {
+									"value": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_date_utc": {
+									"value": {
+										"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_id": {
+									"value": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_status": {
+									"value": "Succeeded",
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_azuresql_atliq_oltp",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "audit_run_failed",
+						"type": "SqlServerStoredProcedure",
+						"dependsOn": [
+							{
+								"activity": "Build_Silver",
+								"dependencyConditions": [
+									"Failed",
+									"Skipped"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"storedProcedureName": "[[etl].[usp_log_pipeline_run]",
+							"storedProcedureParameters": {
+								"error_message": {
+									"value": {
+										"value": "@if(\n    equals(activity('run_bronze_ingestion').Status, 'Failed'),\n    activity('run_bronze_ingestion').error.message,\n    if(\n        equals(activity('run_file_ingestion').Status, 'Failed'),\n        activity('run_file_ingestion').error.message,\n        activity('Build_Silver').error.message\n    )\n)",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"error_stage": {
+									"value": {
+										"value": "@if(\n    equals(activity('run_bronze_ingestion').Status, 'Failed'),\n    'run_bronze_ingestion',\n    if(\n        equals(activity('run_file_ingestion').Status, 'Failed'),\n        'run_file_ingestion',\n        'Build_Silver'\n    )\n)",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"pipeline_name": {
+									"value": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_date_utc": {
+									"value": {
+										"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_id": {
+									"value": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"type": "String"
+								},
+								"run_status": {
+									"value": "Failed",
+									"type": "String"
+								}
+							}
+						},
+						"linkedServiceName": {
+							"referenceName": "ls_azuresql_atliq_oltp",
+							"type": "LinkedServiceReference"
+						}
+					},
+					{
+						"name": "fail_pipeline",
+						"type": "Fail",
+						"dependsOn": [
+							{
+								"activity": "audit_run_failed",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"message": "Nightly pipeline failed. Check SQL audit log for details.",
+							"errorCode": "ATLIQ_PIPELINE_FAILED"
+						}
 					}
 				],
 				"policy": {
@@ -927,7 +1137,8 @@
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/pipelines/pl_atliq_bronze_ingestion')]",
 				"[concat(variables('factoryId'), '/pipelines/pl_atliq_file_ingestion')]",
-				"[concat(variables('factoryId'), '/linkedServices/ls_atliq_databricks')]"
+				"[concat(variables('factoryId'), '/linkedServices/ls_atliq_databricks')]",
+				"[concat(variables('factoryId'), '/linkedServices/ls_azuresql_atliq_oltp')]"
 			]
 		},
 		{
