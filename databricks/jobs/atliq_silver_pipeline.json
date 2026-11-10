@@ -1,0 +1,69 @@
+resources:
+  jobs:
+    atliq_silver_pipeline:
+      name: atliq_silver_pipeline
+      tasks:
+        - task_key: silver_clickstream
+          notebook_task:
+            notebook_path: /Workspace/Users/dheeraj17cb@gmail.com/08_silver_clickstream
+            source: WORKSPACE
+        - task_key: silver_customers
+          notebook_task:
+            notebook_path: /Workspace/Users/dheeraj17cb@gmail.com/01_silver_customers
+            source: WORKSPACE
+        - task_key: silver_marketing
+          notebook_task:
+            notebook_path: /Workspace/Users/dheeraj17cb@gmail.com/07_silver_marketing_spend
+            source: WORKSPACE
+        - task_key: silver_order_items
+          notebook_task:
+            notebook_path: /Workspace/Users/dheeraj17cb@gmail.com/04_silver_order_items
+            source: WORKSPACE
+        - task_key: silver_orders
+          notebook_task:
+            notebook_path: /Workspace/Users/dheeraj17cb@gmail.com/03_silver_orders
+            source: WORKSPACE
+        - task_key: silver_payments
+          notebook_task:
+            notebook_path: /Workspace/Users/dheeraj17cb@gmail.com/05_silver_payments
+            source: WORKSPACE
+        - task_key: silver_products
+          notebook_task:
+            notebook_path: /Workspace/Users/dheeraj17cb@gmail.com/02_silver_products
+            source: WORKSPACE
+        - task_key: silver_supplier_prices
+          notebook_task:
+            notebook_path: /Workspace/Users/dheeraj17cb@gmail.com/06_silver_supplier_price_list
+            source: WORKSPACE
+        - task_key: build_gold
+          depends_on:
+            - task_key: silver_customers
+            - task_key: silver_supplier_prices
+            - task_key: silver_marketing
+            - task_key: silver_orders
+            - task_key: silver_products
+            - task_key: silver_payments
+            - task_key: silver_order_items
+            - task_key: silver_clickstream
+          dbt_task:
+            project_directory: /Workspace/Users/dheeraj17cb@gmail.com/atliq-ecommerce-de/atliq_gold
+            commands:
+              - dbt deps
+              - dbt build
+            schema: gold
+            warehouse_id: 7e274a6a58b75fa1
+            catalog: atliq_dl
+            source: WORKSPACE
+          environment_key: dbt-default
+      queue:
+        enabled: true
+      parameters:
+        - name: run_date
+          default: "{{job.start_time.iso_date}}"
+      environments:
+        - environment_key: dbt-default
+          spec:
+            dependencies:
+              - dbt-databricks>=1.0.0,<2.0.0
+            environment_version: "6"
+      performance_target: PERFORMANCE_OPTIMIZED
