@@ -1,4 +1,4 @@
-# AtliQ Commerce — End-to-End Data Engineering Capstone
+# AtliQ Commerce - End-to-End Data Engineering Capstone
 
 An Azure-based retail analytics pipeline built using **Azure SQL, Azure Data Factory, ADLS Gen2, Azure Databricks, Delta Lake, dbt Core, Microsoft Fabric, and GitHub Actions**.
 
@@ -29,16 +29,16 @@ AtliQ Commerce processes customers, products, orders, order items, and payments 
              Metadata-driven full/incremental copy
                            |
                            v
-                  ADLS Gen2 — BRONZE
+                  ADLS Gen2 - BRONZE
           Raw Parquet (SQL), landed CSV and JSON files
                            |
                            v
-               Azure Databricks — SILVER
+               Azure Databricks - SILVER
        PySpark cleaning, Delta MERGE, quarantine, DQ log
                Unity Catalog: atliq_dl.silver
                            |
                            v
-                    dbt Core — GOLD
+                    dbt Core - GOLD
          Staging views, facts, dimensions, dbt tests
                Unity Catalog: atliq_dl.gold
                            |
@@ -71,15 +71,15 @@ AtliQ Commerce processes customers, products, orders, order items, and payments 
 
 | Milestone | Implementation | Status |
 |---|---|---|
-| M1 — OLTP | Azure SQL schema, seed data, control table, Python transaction simulator | Completed |
-| M2 — Ingestion | ADF metadata-driven SQL ingest and external file landing | Completed |
-| M3 — Silver | Databricks/PySpark cleaning, Delta MERGE, DQ logging, web-event processing | Completed |
-| M4 — Gold | dbt staging views, star-schema models and web-session fact, tests | Completed |
-| M5 — Nightly sync | ADF orchestration and scheduled trigger; incremental processing | Implemented; repeat-run proof to document |
-| M6 — Reporting | Microsoft Fabric semantic model and Power BI dashboards | Completed |
-| M7 — Reliability/CI | GitHub Actions CI, Azure SQL run audit, success/failure email alerts | Implemented; evidence to collect |
+| M1 - OLTP | Azure SQL schema, seed data, control table, Python transaction simulator | Completed |
+| M2 - Ingestion | ADF metadata-driven SQL ingest and external file landing | Completed |
+| M3 - Silver | Databricks/PySpark cleaning, Delta MERGE, DQ logging, web-event processing | Completed |
+| M4 - Gold | dbt staging views, star-schema models and web-session fact, tests | Completed |
+| M5 - Nightly sync | ADF orchestration and scheduled trigger; incremental processing | Implemented; repeat-run proof to document |
+| M6 - Reporting | Microsoft Fabric semantic model and Power BI dashboards | Completed |
+| M7 - Reliability/CI | GitHub Actions CI, Azure SQL run audit, success/failure email alerts | Implemented; evidence to collect |
 
-### M1 — Operational database and simulator
+### M1 - Operational database and simulator
 
 Five transactional tables were created using the supplied SQL assets: `dbo.customers`, `dbo.products`, `dbo.orders`, `dbo.order_items`, and `dbo.payments`. `etl.control_table` stores ingestion metadata, including load type, watermark column and last-loaded timestamp.
 
@@ -103,7 +103,7 @@ python scripts/daily_order_simulator.py --orders 20 --clean
 
 Use the script path that actually exists in the cloned repository. The simulator reads Azure SQL connection settings from a local `.env` file (never commit secrets).
 
-### M2 — Metadata-driven ADF ingestion
+### M2 - Metadata-driven ADF ingestion
 
 ADF reads configuration from `etl.control_table` and applies the appropriate load mode:
 
@@ -116,7 +116,7 @@ The ADF source JSON is maintained in the GitHub collaboration branch under `adf/
 
 The existing nightly ADF orchestration and trigger are version-controlled (including the `tr_atliq_nightly_0600_ist` trigger). See the actual ADF JSON for current task dependencies and parameters.
 
-### M3 — Silver layer (PySpark + Delta Lake)
+### M3 - Silver layer (PySpark + Delta Lake)
 
 Databricks notebooks under `databricks/notebooks/` implement source-specific cleaning and write governed Delta tables in `atliq_dl.silver`.
 
@@ -134,7 +134,7 @@ Silver preserves auditable records where business-level deduplication is intenti
 
 **Incremental behavior:** `MERGE` updates a matching order/payment when the incoming version is newer and inserts previously unseen records. Insert-only order items use insert semantics. Empty incremental batches should be handled safely rather than treated as missing required data.
 
-### M4 — dbt Gold layer
+### M4 - dbt Gold layer
 
 The dbt project lives in `atliq_gold/` and reads Silver through declared dbt sources. Staging views implement business filtering/deduplication, and Gold models support a star schema and conversion analysis.
 
@@ -152,7 +152,7 @@ The actual dbt model is named `dim_customers` (plural), as confirmed by CI logs.
 
 **Business rules:** Gold excludes test-customer orders; staging removes double-submitted lines and duplicate payment retries; website funnel metrics count sessions reaching each stage. Gross revenue excludes cancelled orders, while returned revenue should be separated to calculate net revenue in reporting.
 
-### M5 — Nightly orchestration and run audit
+### M5 - Nightly orchestration and run audit
 
 The master ADF pipeline orchestrates ingestion and downstream transformations, using Databricks processing and dbt Gold builds. A scheduled trigger and success/failure email notifications have been configured.
 
@@ -176,7 +176,7 @@ FROM atliq_dl.gold.fact_sales;
 
 Both values must remain unchanged. Save screenshots/outputs as `docs/idempotency_before.png` and `docs/idempotency_after.png` (or equivalent). A successful pipeline run alone does not prove idempotency.
 
-### M6 — Microsoft Fabric / Power BI dashboard
+### M6 - Microsoft Fabric / Power BI dashboard
 
 The Fabric semantic model (`sm_atliq_commerce`) uses Gold tables to drive two main report pages:
 
@@ -187,7 +187,7 @@ The required five analytical views are covered: revenue trend, top products, top
 
 > The dashboard uses refreshed data that may include simulator-generated orders. Avoid comparing an unfiltered current dashboard directly with historical **seed-only** checkpoints.
 
-### M7 — GitHub Actions CI and reliability
+### M7 - GitHub Actions CI and reliability
 
 GitHub Actions runs the project build and configured dbt tests automatically when a Pull Request targets `main`:
 
@@ -331,7 +331,7 @@ Open a Pull Request from a feature branch into `main`. The workflow runs `dbt de
 - [x] Source code for M1–M4 in GitHub (SQL, ADF, Databricks, dbt)
 - [x] Databricks Silver job configuration exported to GitHub
 - [x] Fabric dashboard created
-- [x] GitHub Actions dbt CI passed — **19/19**, no errors
+- [x] GitHub Actions dbt CI passed - **19/19**, no errors
 - [x] Success/failure email notifications configured
 - [x] Audit table/procedure implemented and logging confirmed
 - [ ] Attach successful nightly trigger/run screenshot
@@ -355,4 +355,4 @@ These unchecked items are **submission evidence or checks still to be confirmed*
 
 ## Reference
 
-Built for the **Codebasics — AtliQ Commerce: End-to-End Data Engineering Capstone**, based on the supplied *Technical Requirements & Step-by-Step Implementation Guide*. Expected data-quality benchmark totals are from that guide; actual production/simulator results must be validated separately.
+Built for the **Codebasics - AtliQ Commerce: End-to-End Data Engineering Capstone**, based on the supplied *Technical Requirements & Step-by-Step Implementation Guide*. Expected data-quality benchmark totals are from that guide; actual production/simulator results must be validated separately.
