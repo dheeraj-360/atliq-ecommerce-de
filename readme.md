@@ -1,151 +1,91 @@
-# AtliQ Commerce - End-to-End Data Engineering Capstone
+# AtliQ Commerce — End-to-End Data Engineering Capstone
 
-An Azure-based end-to-end Data Engineering project that builds a scalable analytics pipeline for a fictional e-commerce business.
+An Azure-based retail analytics pipeline built using **Azure SQL, Azure Data Factory, ADLS Gen2, Azure Databricks, Delta Lake, dbt Core, Microsoft Fabric, and GitHub Actions**.
 
-The objective is to extract operational and external source data, transform it into reliable analytical datasets, and enable business reporting using modern Azure Data Engineering technologies.
+The project separates transactional operations from analytics, ingests and cleans intentionally messy retail data, builds dimensional models, and presents revenue, customer, product, and website-conversion insights.
 
-**Project Status:** Milestone 1 Completed | Milestones 2–7 Planned
+> **Status (10 November 2026):** M1–M7 implemented, including a Fabric dashboard, scheduled pipeline, audit logging, email notifications, and successful dbt CI. Final seed-checkpoint reconciliation and repeat-run idempotency evidence should be attached before submission if not already captured. The implemented CI workflow validates Pull Requests; it does **not** automatically deploy code to production.
 
----
+## 1. Business problem
 
-## 1. Business Problem
+AtliQ Commerce processes customers, products, orders, order items, and payments in a normalized operational (OLTP) database. Running large analytical queries against that database risks affecting operational workloads. Leadership needs a separate reporting layer to answer:
 
-AtliQ Commerce is a growing e-commerce company that stores transactional data such as customers, products, orders, order items, and payments in an operational (OLTP) database.
+- How does revenue change over time?
+- Which products, categories, and cities contribute the most revenue?
+- How many purchasing customers are new versus returning?
+- How do website sessions progress from product view to purchase?
 
-As the business grows, leadership needs answers to questions such as:
+**Solution:** Land operational and external data in a lakehouse, clean it with PySpark and Delta Lake, model analytics with dbt, and serve dashboards with Microsoft Fabric/Power BI.
 
-- How much revenue are we generating?
-- Which products and categories perform best?
-- Which cities contribute the most revenue?
-- How many customers are new versus returning?
-- How effectively do website visitors convert into paying customers?
-
-Running complex analytical queries directly on the OLTP database can impact transactional performance.
-
-**Solution:** Build a separate analytics lakehouse that ingests transactional and external data, cleans and transforms it, and makes it available for business intelligence reporting.
-
----
-
-## 2. Project Architecture
-
-The project follows a **Medallion Architecture (Bronze → Silver → Gold)** with nightly batch processing.
+## 2. Architecture
 
 ```text
-             DATA SOURCES
-                  |
-       +----------+----------+
-       |                     |
-  Azure SQL DB          External Files
-     (OLTP)             CSV / JSON
-       |                     |
-       +----------+----------+
-                  |
-                  v
-          Azure Data Factory
-       Metadata-Driven Ingestion
-                  |
-                  v
-          ADLS Gen2 — Bronze
-          Raw Data / Parquet
-                  |
-                  v
-        Azure Databricks — Silver
-        PySpark + Delta Lake
-        Cleaning / MERGE
-                  |
-                  v
-          dbt Core — Gold
-          Star Schema / Facts
-          Dimensions / Funnel
-                  |
-                  v
-          Microsoft Fabric
-          Power BI Dashboards
+                        DATA SOURCES
+          Azure SQL (OLTP)       External files
+          5 transaction tables   Supplier CSV | Marketing CSV | Clickstream JSON
+                     \           /
+                      \         /
+                 Azure Data Factory (ADF)
+             Metadata-driven full/incremental copy
+                           |
+                           v
+                  ADLS Gen2 — BRONZE
+          Raw Parquet (SQL), landed CSV and JSON files
+                           |
+                           v
+               Azure Databricks — SILVER
+       PySpark cleaning, Delta MERGE, quarantine, DQ log
+               Unity Catalog: atliq_dl.silver
+                           |
+                           v
+                    dbt Core — GOLD
+         Staging views, facts, dimensions, dbt tests
+               Unity Catalog: atliq_dl.gold
+                           |
+                           v
+             Microsoft Fabric / Power BI
+             Executive + Customer/Conversion
 
-Cross-cutting:
-Unity Catalog | Git | CI/CD
-Data Quality | Monitoring
+   Orchestration: ADF nightly master pipeline / Databricks jobs
+   Reliability: Azure SQL audit log, run alerts, DQ logging
+   Version control + CI: GitHub / GitHub Actions / atliq_dl.ci
 ```
 
-### Architecture Components
+**OLTP versus OLAP:** Azure SQL retains normalized tables optimized for transactional writes. The separate Gold star schema is optimized for reporting reads, so analytical queries do not have to scan the operational database directly.
 
-| Component | Responsibility |
-|---|---|
-| Azure SQL Database | Operational data source (OLTP) |
-| Azure Data Factory | Data ingestion and orchestration |
-| Azure Data Lake Storage Gen2 | Centralized cloud data storage |
-| Azure Databricks | Distributed data processing using PySpark |
-| Delta Lake | Reliable transactional tables |
-| Unity Catalog | Lakehouse governance |
-| dbt Core | SQL-based analytical transformations |
-| Microsoft Fabric | Analytical reporting and dashboards |
-| GitHub | Version control and CI/CD |
+### Technologies
 
----
-
-## 3. Project Milestones
-
-| Milestone | Description | Status |
+| Layer | Technology | Responsibility |
 |---|---|---|
-| M1 | Build OLTP Database and Transaction Simulator | ✅ Completed |
-| M2 | Metadata-Driven Ingestion using ADF | Planned |
-| M3 | Bronze to Silver using PySpark and Delta Lake | Planned |
-| M4 | Gold Star Schema using dbt Core | Planned |
-| M5 | Automate Nightly Incremental Pipeline | Planned |
-| M6 | Reporting using Microsoft Fabric | Planned |
-| M7 | CI/CD, Monitoring and Reliability | Planned |
+| Operational source | Azure SQL Database, T-SQL | Orders, customers, products, items, payments; ETL metadata |
+| File sources | CSV and JSON Lines | Supplier history, marketing spend, website events |
+| Ingestion/orchestration | Azure Data Factory | Parameterized ingestion, watermarks, scheduled pipelines |
+| Data lake | Azure Data Lake Storage Gen2 | Bronze file storage and Delta locations |
+| Processing | Azure Databricks, PySpark, Delta Lake | Silver standardization, incremental MERGE, data quality |
+| Governance | Unity Catalog (`atliq_dl`) | Catalog and schema organization |
+| Analytics modeling | dbt Core + Databricks | Gold facts/dimensions and tests |
+| Reporting | Microsoft Fabric / Power BI | Business dashboards |
+| Source control and CI | GitHub + GitHub Actions | PR-triggered dbt builds/tests |
 
----
+## 3. Milestone implementation
 
-## 4. Milestone 1 — Build the OLTP Database
+| Milestone | Implementation | Status |
+|---|---|---|
+| M1 — OLTP | Azure SQL schema, seed data, control table, Python transaction simulator | Completed |
+| M2 — Ingestion | ADF metadata-driven SQL ingest and external file landing | Completed |
+| M3 — Silver | Databricks/PySpark cleaning, Delta MERGE, DQ logging, web-event processing | Completed |
+| M4 — Gold | dbt staging views, star-schema models and web-session fact, tests | Completed |
+| M5 — Nightly sync | ADF orchestration and scheduled trigger; incremental processing | Implemented; repeat-run proof to document |
+| M6 — Reporting | Microsoft Fabric semantic model and Power BI dashboards | Completed |
+| M7 — Reliability/CI | GitHub Actions CI, Azure SQL run audit, success/failure email alerts | Implemented; evidence to collect |
 
-**Status: Completed**
+### M1 — Operational database and simulator
 
-### Objective
+Five transactional tables were created using the supplied SQL assets: `dbo.customers`, `dbo.products`, `dbo.orders`, `dbo.order_items`, and `dbo.payments`. `etl.control_table` stores ingestion metadata, including load type, watermark column and last-loaded timestamp.
 
-Set up the operational database for AtliQ Commerce, load historical transactional data, and simulate new daily transactions to support incremental ingestion in subsequent milestones.
+**Original seed counts (before simulation and cleaning):**
 
-### Technologies Used
-
-- Azure SQL Database
-- SQL Server (T-SQL)
-- Visual Studio Code
-- MSSQL Extension
-- Python
-- pyodbc
-- ODBC Driver 18 for SQL Server
-- Git
-
-### Implementation Steps
-
-**Step 1 — Azure SQL Database Setup**
-
-- Created Azure SQL Database using the Azure SQL Free Offer.
-- Configured SQL authentication.
-- Configured database networking and client IP access.
-- Established a connection using the MSSQL extension in VS Code.
-
-Database name: `atliq_commerce_db`
-
-**Step 2 — OLTP Schema Creation**
-
-Executed `01_schema_ddl.sql` to create five transactional tables:
-
-1. `dbo.customers`
-2. `dbo.products`
-3. `dbo.orders`
-4. `dbo.order_items`
-5. `dbo.payments`
-
-The database follows a normalized relational structure with primary-key and foreign-key relationships.
-
-**Step 3 — Historical Data Loading**
-
-Executed the supplied SQL INSERT scripts to populate the OLTP database.
-
-### Initial Source Data Validation
-
-| Table | Validated Records |
+| Source table | Seed rows |
 |---|---:|
 | customers | 1,008 |
 | products | 60 |
@@ -153,328 +93,266 @@ Executed the supplied SQL INSERT scripts to populate the OLTP database.
 | order_items | 23,155 |
 | payments | 8,320 |
 
-All five table counts matched the expected seed-data values.
-
-**Step 4 — ETL Control Table**
-
-Executed `07_etl_control_table.sql`.
-
-The ETL control table stores metadata used by the ingestion pipeline, including:
-
-- Source table information
-- Load type (Full / Incremental)
-- Watermark column
-- Last loaded timestamp
-
-This metadata will drive the generic ADF ingestion pipeline in Milestone 2.
-
-### 4.1 Daily Transaction Simulator
-
-Configured `daily_order_simulator.py` to generate new transactional data in Azure SQL.
-
-**Purpose**
-
-In a real e-commerce application, customers continuously place orders and make payments. Since this project does not include an actual storefront, the Python simulator reproduces transactional activity.
-
-The simulator:
-
-- Connects to Azure SQL using `pyodbc`.
-- Selects existing customers and products.
-- Generates new orders, order items, and payments.
-- Uses UTC timestamps.
-- Supports updating existing orders.
-- Intentionally introduces data quality inconsistencies for downstream cleaning.
-
-### Simulator Commands
-
-Generate 20 new orders:
+The Python simulator adds realistic new orders, associated items and payments, and can advance existing order statuses. One documented local test inserted 20 orders (10,000 → 10,020).
 
 ```bash
 python scripts/daily_order_simulator.py --orders 20
-```
-
-Generate 20 orders and update up to five existing orders:
-
-```bash
 python scripts/daily_order_simulator.py --orders 20 --update-existing 5
-```
-
-Generate transactions without intentionally messy data:
-
-```bash
 python scripts/daily_order_simulator.py --orders 20 --clean
 ```
 
-### Simulator Validation
+Use the script path that actually exists in the cloned repository. The simulator reads Azure SQL connection settings from a local `.env` file (never commit secrets).
 
-Executed:
+### M2 — Metadata-driven ADF ingestion
 
-```bash
-python scripts/daily_order_simulator.py --orders 20
+ADF reads configuration from `etl.control_table` and applies the appropriate load mode:
+
+- **Full load:** reload smaller reference tables, such as customers/products.
+- **Incremental load:** use a timestamp watermark for orders (`updated_at`), order items (`created_at`) and payments (`updated_at`).
+- **Run boundary:** capture a run-start UTC timestamp and advance a table's watermark only after a successful copy. This avoids skipping source records arriving during the run.
+- **External files:** land supplier and marketing CSVs and preserve clickstream JSON Lines in Bronze for downstream parsing.
+
+The ADF source JSON is maintained in the GitHub collaboration branch under `adf/`. The separate `adf_publish` branch contains generated deployment templates and **should not be merged into `main` merely because ADF Publish updated it**.
+
+The existing nightly ADF orchestration and trigger are version-controlled (including the `tr_atliq_nightly_0600_ist` trigger). See the actual ADF JSON for current task dependencies and parameters.
+
+### M3 — Silver layer (PySpark + Delta Lake)
+
+Databricks notebooks under `databricks/notebooks/` implement source-specific cleaning and write governed Delta tables in `atliq_dl.silver`.
+
+Examples of source-data rules:
+
+- Normalize cities, emails, product/category labels, order statuses and payment methods.
+- Flag QA accounts (`@atliq-test.com`) for exclusion from business reporting.
+- Replace placeholder order dates with the appropriate creation date.
+- Merge updated orders/payments by business key rather than blindly appending new versions.
+- Parse supplier costs and marketing data defensively, including inconsistent formatting and duplicate rows.
+- Quarantine malformed clickstream JSON, deduplicate by event ID, reject invalid sessions/products and remove bot sessions.
+- Record cleaning-rule effects in `atliq_dl.silver.dq_log`.
+
+Silver preserves auditable records where business-level deduplication is intentionally deferred to dbt staging.
+
+**Incremental behavior:** `MERGE` updates a matching order/payment when the incoming version is newer and inserts previously unseen records. Insert-only order items use insert semantics. Empty incremental batches should be handled safely rather than treated as missing required data.
+
+### M4 — dbt Gold layer
+
+The dbt project lives in `atliq_gold/` and reads Silver through declared dbt sources. Staging views implement business filtering/deduplication, and Gold models support a star schema and conversion analysis.
+
+**Gold models:**
+
+| Model | Role / grain |
+|---|---|
+| `fact_sales` | One cleaned order-item row; quantity, price, revenue and order status |
+| `dim_customers` | Customer attributes and first-order information |
+| `dim_product` | Product/category and latest supplier-cost attributes |
+| `dim_date` | Calendar attributes for consistent date filtering |
+| `fact_web_sessions` | One row per website session with funnel-stage flags |
+
+The actual dbt model is named `dim_customers` (plural), as confirmed by CI logs. The source guide uses `dim_customer` as an illustrative name.
+
+**Business rules:** Gold excludes test-customer orders; staging removes double-submitted lines and duplicate payment retries; website funnel metrics count sessions reaching each stage. Gross revenue excludes cancelled orders, while returned revenue should be separated to calculate net revenue in reporting.
+
+### M5 — Nightly orchestration and run audit
+
+The master ADF pipeline orchestrates ingestion and downstream transformations, using Databricks processing and dbt Gold builds. A scheduled trigger and success/failure email notifications have been configured.
+
+`sql/pipeline_run_audit.sql` defines `etl.pipeline_run_audit` and `etl.usp_log_pipeline_run` in Azure SQL. The audit stores:
+
+- Run ID, pipeline name, UTC run date and start/finish timestamps
+- Status (`Running`, `Succeeded`, `Failed`)
+- Current source-table totals (orders, order items, payments) on success
+- Failure stage/message where available
+
+**Clarification:** `source_*_rows` are current Azure SQL source totals, **not** per-batch copy counts or Gold fact rows.
+
+**Idempotency evidence (to capture/attach):** run the complete nightly pipeline twice with no intervening source changes or simulator execution, and compare the following Gold result after each successful run:
+
+```sql
+SELECT
+    COUNT(*) AS fact_rows,
+    SUM(gross_revenue) AS total_gross_revenue
+FROM atliq_dl.gold.fact_sales;
 ```
 
-Successfully generated 20 new orders.
+Both values must remain unchanged. Save screenshots/outputs as `docs/idempotency_before.png` and `docs/idempotency_after.png` (or equivalent). A successful pipeline run alone does not prove idempotency.
 
-| Metric | Result |
+### M6 — Microsoft Fabric / Power BI dashboard
+
+The Fabric semantic model (`sm_atliq_commerce`) uses Gold tables to drive two main report pages:
+
+- **Overview:** revenue, orders, cancellation/return indicators, revenue trend, top products and cities, with filtering controls.
+- **Customer & Conversion Analysis:** active/purchasing customers, session/purchase conversion KPIs, new versus returning customers and the website conversion funnel.
+
+The required five analytical views are covered: revenue trend, top products, top cities, new vs returning purchasing customers, and sessions → product views → add to cart → checkout → purchases. A hidden working page (`New_Vs_Returning`) was used while developing the report.
+
+> The dashboard uses refreshed data that may include simulator-generated orders. Avoid comparing an unfiltered current dashboard directly with historical **seed-only** checkpoints.
+
+### M7 — GitHub Actions CI and reliability
+
+GitHub Actions runs the project build and configured dbt tests automatically when a Pull Request targets `main`:
+
+```text
+Feature branch -> Pull Request to main -> GitHub Actions
+  -> install Python/dbt -> dbt deps -> dbt build --target ci
+  -> check result -> review and merge
+```
+
+- Workflow: `.github/workflows/ci.yml`
+- Profile: `atliq_gold/profiles.yml`, using GitHub Secrets `DATABRICKS_HOST`, `DATABRICKS_HTTP_PATH`, `DATABRICKS_TOKEN`
+- Production target: `atliq_dl.gold`
+- Isolated CI target: `atliq_dl.ci`
+- Gold `location_root` uses `{{ target.schema }}` so CI files use a separate ADLS location.
+
+**Verified CI result (10 November 2026):**
+
+| Result | Count |
 |---|---:|
-| Initial Orders | 10,000 |
-| Newly Generated Orders | 20 |
-| Total Orders After Simulation | 10,020 |
-| Existing Orders Updated | 0 |
+| Table models created | 5 |
+| Staging view models created | 6 |
+| dbt data tests passed | 8 |
+| **Total successful nodes** | **19 / 19** |
+| Warnings / errors / skips | **0 / 0 / 0** |
+| dbt build duration (reported) | **34.42 seconds** |
 
-Verified the updated order count directly in Azure SQL.
+The CI logs explicitly show models created in `ci`, including `ci.fact_sales`, `ci.dim_product`, and `ci.fact_web_sessions`. Tests cover uniqueness, not-null checks, accepted order statuses, and relationships between sales facts and dimensions.
 
-### 4.2 SQL Validation Queries
+**Scope:** This is **CI**, not an automated production deployment. Merging a Pull Request changes GitHub source code; a separate production execution is required to update `atliq_dl.gold`.
 
-**Check source row counts**
+Failure/success email notifications are configured for the pipeline. The separate Azure SQL audit table records orchestration history.
 
-```sql
-SELECT 'customers' AS table_name,
-       COUNT(*) AS row_count
-FROM dbo.customers
+## 4. Data-quality validation
 
-UNION ALL
-SELECT 'products', COUNT(*)
-FROM dbo.products
+The supplied dataset intentionally contains messy source data. The implementation guide provides reference checkpoints for the original seed period (through **31 August 2026**) after cleaning. These values are **expected benchmarks**, not claims about the latest live tables.
 
-UNION ALL
-SELECT 'orders', COUNT(*)
-FROM dbo.orders
+| Seed-period check | Guide benchmark |
+|---|---:|
+| Customers excluding QA | 1,000 |
+| Products | 60 |
+| Valid orders excluding QA | 9,961 |
+| Clean fact sales items | 22,959 |
+| Payments after deduplication | 8,183 |
+| Gross revenue excluding cancelled | 32,424,661.00 |
+| Returned revenue | 4,574,944.00 |
+| Net revenue | 27,849,717.00 |
+| Supplier current-cost rows | 60 |
+| Clean marketing rows | 3,037 |
+| Clean web events | 93,436 |
+| Web sessions | 23,193 |
+| Sessions reaching purchase | 3,446 |
 
-UNION ALL
-SELECT 'order_items', COUNT(*)
-FROM dbo.order_items
+Seed clickstream funnel benchmark: **23,193 sessions → 13,309 product views → 7,391 add to cart → 4,442 checkout → 3,446 purchases** (approximately **14.86%** session-to-purchase conversion).
 
-UNION ALL
-SELECT 'payments', COUNT(*)
-FROM dbo.payments;
-```
+**Evidence to attach:** capture the actual seed-scoped reconciliation, plus `atliq_dl.silver.dq_log` rule counts. Where the simulator or updates alter records, describe the differences rather than claiming an exact benchmark match.
 
-**Verify ETL control metadata**
-
-```sql
-SELECT *
-FROM etl.control_table;
-```
-
-**Check recently inserted orders**
+Example DQ summary query:
 
 ```sql
-SELECT TOP 20
-    order_id,
-    customer_id,
-    order_date,
-    status,
-    order_amount,
-    created_at,
-    updated_at
-FROM dbo.orders
-ORDER BY order_id DESC;
+SELECT run_date, table_name, rule, SUM(rows_affected) AS rows_affected
+FROM atliq_dl.silver.dq_log
+GROUP BY run_date, table_name, rule
+ORDER BY run_date DESC, table_name, rule;
 ```
 
-### 4.3 Key Learnings from Milestone 1
+## 5. Repository layout
 
-- Difference between OLTP and OLAP workloads.
-- Creating and connecting to Azure SQL Database.
-- Understanding normalized transactional tables.
-- Executing SQL DDL and DML scripts.
-- Validating source data using reconciliation queries.
-- Understanding metadata-driven ingestion configuration.
-- Connecting Python applications to Azure SQL using ODBC.
-- Simulating INSERT and UPDATE operations.
-- Understanding the importance of `created_at` and `updated_at` in incremental processing.
-- Managing Azure resource costs and free-tier limits.
-
----
-
-## 5. Upcoming Implementation
-
-### Milestone 2 — Ingestion using Azure Data Factory
-
-**Status: Planned**
-
-- Configure Azure Data Factory and ADLS Gen2.
-- Create linked services and parameterized datasets.
-- Build a metadata-driven ingestion pipeline.
-- Implement Full and Incremental loading.
-- Use ETL control-table watermarks.
-- Ingest SQL tables, CSV files, and clickstream JSON.
-- Validate data landing in Bronze.
-
-### Milestone 3 — Silver Transformation
-
-**Status: Planned**
-
-- Configure Azure Databricks and Unity Catalog.
-- Read Bronze data using PySpark.
-- Perform data cleaning and standardization.
-- Implement Delta Lake MERGE.
-- Handle missing, invalid, and duplicate data.
-- Add data quality logging and event quarantine.
-
-### Milestone 4 — Gold Data Modeling
-
-**Status: Planned**
-
-- Configure dbt Core with Databricks.
-- Create staging models.
-- Build fact and dimension tables.
-- Implement star schema.
-- Build website conversion funnel models.
-- Add dbt data quality tests.
-
-### Milestone 5 — Nightly Pipeline Automation
-
-**Status: Planned**
-
-- Schedule nightly ingestion and transformation.
-- Implement safe incremental processing.
-- Test pipeline retries and failure recovery.
-- Validate idempotency.
-- Implement end-to-end reconciliation.
-
-### Milestone 6 — Microsoft Fabric Reporting
-
-**Status: Planned**
-
-- Connect Gold tables to Microsoft Fabric.
-- Build Power BI reports.
-- Revenue trend analysis.
-- Best-selling product analysis.
-- City-wise revenue analysis.
-- New versus returning customers.
-- Website conversion funnel.
-
-### Milestone 7 — CI/CD and Reliability
-
-**Status: Planned**
-
-- Configure GitHub Actions.
-- Implement automated dbt builds and tests.
-- Manage credentials securely.
-- Configure pipeline failure alerts.
-- Implement execution logging and monitoring.
-- Finalize project documentation.
-
----
-
-## 6. Repository Structure
-
-Current repository organization:
+The structure below describes the intended source-controlled components; names/files should be checked against the actual repository before submission.
 
 ```text
 atliq-ecommerce-de/
-|
-├── sql/
-│   ├── 01_schema_ddl.sql
-│   ├── 02_insert_customers.sql
-│   ├── 03_insert_products.sql
-│   ├── 04_insert_orders.sql
-│   ├── 05_insert_order_items.sql
-│   ├── 06_insert_payments.sql
-│   ├── 07_etl_control_table.sql
-│   └── validation queries
-│
-├── scripts/
-│   └── daily_order_simulator.py
-│
-├── requirements.txt
+├── sql/                         # OLTP seed/control scripts + pipeline_run_audit.sql
+├── scripts/                     # Daily order simulator
+├── adf/                         # Factory pipelines, datasets, linked services, triggers
+├── databricks/
+│   ├── notebooks/               # Silver processing and DQ utilities
+│   └── jobs/                    # Exported atliq_silver_pipeline job definition
+├── atliq_gold/
+│   ├── models/                  # Staging and Gold SQL models / schema tests
+│   ├── dbt_project.yml
+│   └── profiles.yml             # env_var() only; no literal secrets
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # PR-triggered dbt CI
+├── docs/                        # Screenshots, validation, architecture evidence
 ├── .gitignore
-└── readme.md
+├── requirements.txt
+└── README.md
 ```
 
-Additional directories for ADF, Databricks, dbt, documentation, and CI/CD will be added as implementation progresses.
+`adf_publish` is a separate ADF-generated deployment branch, **not** an additional directory to merge into `main`.
 
----
-
-## 7. Local Setup
+## 6. Running the project
 
 ### Prerequisites
 
-- Python 3.10+
-- ODBC Driver 18 for SQL Server
-- Azure SQL Database
-- VS Code
-- MSSQL Extension
+- Azure SQL and ADLS access, Azure Data Factory, an Azure Databricks workspace with Unity Catalog, and Fabric reporting access
+- Python 3.10+ with ODBC Driver 18 for the simulator
+- dbt Core with the Databricks adapter for Gold modeling
+- Git and VS Code
 
-### Install Python Dependencies
-
-Create a virtual environment:
-
-```bash
-python -m venv .venv
-```
-
-Activate it on Windows:
+### Local simulator
 
 ```powershell
+python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
-### Database Connection Configuration
+Create a local `.env` based on `.env.example`, with the appropriate `AZ_SQL_SERVER`, `AZ_SQL_DB`, `AZ_SQL_USER`, and `AZ_SQL_PASSWORD` variables. **Never commit `.env` or tokens.**
 
-Create a local `.env` file containing:
+### dbt
 
-```dotenv
-AZ_SQL_SERVER=your-server.database.windows.net
-AZ_SQL_DB=atliq_commerce_db
-AZ_SQL_USER=your_username
-AZ_SQL_PASSWORD=your_password
+From `atliq_gold/`, run dbt using a properly configured connection. The project's checked-in `profiles.yml` obtains connection details from environment variables:
+
+```powershell
+$env:DATABRICKS_HOST = "<workspace-host-without-https>"
+$env:DATABRICKS_HTTP_PATH = "<sql-warehouse-http-path>"
+# Set DATABRICKS_TOKEN securely in your local environment; do not paste it into code or Git.
+dbt deps
+dbt build --target ci
 ```
 
-**Security:** Never commit `.env` files, passwords, or access tokens to GitHub.
+The `ci` target builds **test** models; it is not a production deployment. Normal local workflows may use a separate profile in the user's `.dbt` directory. Specify `--profiles-dir` explicitly when you need to select a particular profile location.
 
----
+### GitHub CI
 
-## 8. Data Quality Considerations
+Open a Pull Request from a feature branch into `main`. The workflow runs `dbt deps` and `dbt build --target ci` using GitHub repository secrets. Check the PR **Checks** tab and GitHub Actions logs for the summary.
 
-The starter dataset intentionally includes real-world data quality issues:
+## 7. Security, operations and limitations
 
-- Inconsistent city names.
-- Non-standard order statuses.
-- Test customer accounts.
-- Duplicate order items.
-- Payment gateway retries.
-- Supplier pricing inconsistencies.
-- Marketing channel variations.
-- Malformed clickstream JSON.
-- Bot-generated website events.
+- Credentials are handled via environment variables, GitHub Secrets, and local ignored `.env` files; no credentials belong in source control.
+- The ADF collaboration branch holds editable factory JSON; ADF Publish maintains separate deployment artifacts in `adf_publish`.
+- Git-connected Databricks notebooks and the exported job JSON are source-controlled; **changes made to the job in the Databricks UI must be exported and committed again** until job-as-code deployment is implemented.
+- CI currently uses a shared persistent `ci` schema: successive builds can replace previous CI tables; it is not a per-PR disposable environment.
+- Pipeline alerts and audit logs aid troubleshooting but do not, by themselves, prove data correctness.
+- Azure services may incur costs. Monitor resource usage and stop/delete resources after submission if no longer needed.
 
-These issues will be addressed through Silver transformations and dbt staging models in upcoming milestones.
+## 8. Submission evidence checklist
 
----
+- [x] Source code for M1–M4 in GitHub (SQL, ADF, Databricks, dbt)
+- [x] Databricks Silver job configuration exported to GitHub
+- [x] Fabric dashboard created
+- [x] GitHub Actions dbt CI passed — **19/19**, no errors
+- [x] Success/failure email notifications configured
+- [x] Audit table/procedure implemented and logging confirmed
+- [ ] Attach successful nightly trigger/run screenshot
+- [ ] Attach idempotency before/after Gold query results
+- [ ] Attach actual seed-scoped DQ reconciliation and rule-count report
+- [ ] Attach Fabric dashboard and CI logs/screenshots
+- [ ] Confirm README file paths match the final repository structure
+- [ ] Verify no credentials/tokens were committed, including Git history
 
-## 9. Security and Cost Management
+These unchecked items are **submission evidence or checks still to be confirmed**, not claims that those features were never implemented.
 
-- Using the Azure SQL Database Free Offer.
-- Restricted database access using firewall rules.
-- Enabled encrypted database connections.
-- Kept database credentials outside Git.
-- Configured `.gitignore` to exclude local secrets and Python virtual environments.
-- Monitoring Azure resource usage and costs.
+## 9. Key engineering decisions
 
-Azure Data Factory, Databricks, and other services may incur additional costs in later milestones.
+1. **OLTP/OLAP separation:** Protect transaction-serving workloads from expensive analytical reporting.
+2. **Control-table watermarks:** Reuse one metadata-driven ingestion pattern; use UTC run-start boundaries and update watermarks only after successful copies.
+3. **Bronze before cleaning:** Preserve incoming source data for debugging, audit, and replay.
+4. **Silver Delta MERGE:** Apply updated source records using keys and timestamp comparisons; do not append mutable entities into Silver blindly.
+5. **Explicit data-quality rules:** Standardize messy values, quarantine bad events, record cleaning counts, and use dbt tests for final model checks.
+6. **Idempotent Gold rebuild:** Build table materializations from cleaned Silver/staging models to avoid duplicate accumulation; confirm with a two-run comparison.
+7. **Isolated CI:** Run the same dbt logic and tests against the separate `atliq_dl.ci` target rather than overwriting production Gold.
 
----
+## Reference
 
-## 10. Current Progress Summary
-
-**Milestone 1 has been completed and validated.**
-
-The operational Azure SQL database is ready, historical data has been loaded, and new transactions can be simulated using Python.
-
-**Next Step:** Milestone 2 — Build the metadata-driven ingestion pipeline using Azure Data Factory and Azure Data Lake Storage Gen2.
-
----
-
-## Project Reference
-
-This project is based on the Codebasics *AtliQ Commerce — End-to-End Data Engineering Capstone: Technical Requirements & Step-by-Step Implementation Guide*.
-
-The implementation follows the supplied project requirements, with engineering decisions, validations, and documentation added during development.
+Built for the **Codebasics — AtliQ Commerce: End-to-End Data Engineering Capstone**, based on the supplied *Technical Requirements & Step-by-Step Implementation Guide*. Expected data-quality benchmark totals are from that guide; actual production/simulator results must be validated separately.
