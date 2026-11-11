@@ -1179,6 +1179,45 @@
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/pipelines/pl_atliq_nightly sync')]"
 			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/tr_atliq_early_8am')]",
+			"type": "Microsoft.DataFactory/factories/triggers",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Runs every morning 8 AM",
+				"annotations": [],
+				"runtimeState": "Started",
+				"pipelines": [
+					{
+						"pipelineReference": {
+							"referenceName": "pl_atliq_nightly sync",
+							"type": "PipelineReference"
+						},
+						"parameters": {}
+					}
+				],
+				"type": "ScheduleTrigger",
+				"typeProperties": {
+					"recurrence": {
+						"frequency": "Day",
+						"interval": 1,
+						"startTime": "2026-11-11T02:20:00",
+						"timeZone": "India Standard Time",
+						"schedule": {
+							"minutes": [
+								0
+							],
+							"hours": [
+								8
+							]
+						}
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/pl_atliq_nightly sync')]"
+			]
 		}
 	]
 }
