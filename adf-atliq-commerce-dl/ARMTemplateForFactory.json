@@ -1148,7 +1148,7 @@
 			"properties": {
 				"description": "Runs every morning 8 AM",
 				"annotations": [],
-				"runtimeState": "Started",
+				"runtimeState": "Stopped",
 				"pipelines": [
 					{
 						"pipelineReference": {
@@ -1187,7 +1187,7 @@
 			"properties": {
 				"description": "Daily Run at morning 6:00 AM",
 				"annotations": [],
-				"runtimeState": "Stopped",
+				"runtimeState": "Started",
 				"pipelines": [
 					{
 						"pipelineReference": {
