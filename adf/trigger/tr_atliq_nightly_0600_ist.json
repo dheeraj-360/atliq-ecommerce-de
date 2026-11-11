@@ -3,7 +3,7 @@
 	"properties": {
 		"description": "Daily Run at morning 6:00 AM",
 		"annotations": [],
-		"runtimeState": "Started",
+		"runtimeState": "Stopped",
 		"pipelines": [
 			{
 				"pipelineReference": {
