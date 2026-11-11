@@ -1,0 +1,25 @@
+{
+	"name": "tr_atliq_early_8am",
+	"properties": {
+		"description": "Runs every morning 8 AM",
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "pl_atliq_nightly sync",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "ScheduleTrigger",
+		"typeProperties": {
+			"recurrence": {
+				"frequency": "Hour",
+				"interval": 1,
+				"startTime": "2026-11-11T02:20:00",
+				"timeZone": "India Standard Time"
+			}
+		}
+	}
+}
