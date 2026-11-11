@@ -144,15 +144,24 @@
 							"type": "String"
 						},
 						"pipeline_name": {
-							"value": "@pipeline().Pipeline",
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_date_utc": {
-							"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+							"value": {
+								"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_id": {
-							"value": "@pipeline().RunId",
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_status": {
@@ -197,15 +206,24 @@
 							"type": "String"
 						},
 						"pipeline_name": {
-							"value": "@pipeline().Pipeline",
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_date_utc": {
-							"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+							"value": {
+								"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_id": {
-							"value": "@pipeline().RunId",
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_status": {
@@ -257,15 +275,24 @@
 							"type": "String"
 						},
 						"pipeline_name": {
-							"value": "@pipeline().Pipeline",
+							"value": {
+								"value": "@pipeline().Pipeline",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_date_utc": {
-							"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+							"value": {
+								"value": "@formatDateTime(variables('master_run_start_at'),'yyyy-MM-dd')",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_id": {
-							"value": "@pipeline().RunId",
+							"value": {
+								"value": "@pipeline().RunId",
+								"type": "Expression"
+							},
 							"type": "String"
 						},
 						"run_status": {
