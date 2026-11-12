@@ -224,8 +224,8 @@ The `main` branch contains the source implementation, including ADF definitions,
 
 **More evidence:** [PR merge](docs/PR_merge.png) | [SQL audit runs](docs/idempotency/audit_log_sucessive_runs.png) | [DQ log CSV](docs/DQ_Log/dq_log_seed.csv) | [Architecture write-up](docs/DE_Architecture/AtliQ_Architecture_One_Page.docx).
 
-**Project scope:** A working end-to-end capstone implementation, not a fully automated production deployment. Cloud resources, access permissions and environment-specific connections must be configured to reproduce it.
+**Project scope:** A working end-to-end capstone implementation. Cloud resources, access permissions and environment-specific connections must be configured to reproduce it.
 
 ---
 
-*Built for the Codebasics AtliQ Commerce End-to-End Data Engineering Capstone.*
+*AtliQ Commerce End-to-End Data Engineering Capstone.*
