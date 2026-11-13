@@ -191,7 +191,7 @@ This error occurred at the Azure SQL audit stage, before ingestion began. The `a
 
 **Why this matters:** A green CI run and a working schedule do not guarantee every nightly execution will succeed. Detecting a real failure and strengthening the recovery path demonstrates operational ownership rather than only implementation.
 
-Supporting evidence is available in [`docs/`](docs/), including [trigger run](docs/PL_Trigger_run.png), [failure alert](docs/Failed_pipeline_alert.png), [success email](docs/Sucess_Alert_email.png) and [failure audit evidence](docs/Audit_log_failed_runs.png). The audit screenshot may represent a different test run; it is not presented as proof that this specific November 12 failure was written to SQL.
+Supporting evidence is available in [`docs/`](docs/), including [trigger run](docs/PL_Trigger_run.png), [failure alert](docs/Failed_pipeline_alert.png), [success email](docs/Sucess_Alert_email.png) and [failure audit evidence](docs/Audit_log_failed_runs.png). The pipeline includes SQL-based audit logging, automated success/failure alerts and activity-level monitoring in Azure Data Factory. Failure handling was validated through intentional testing. A later SQL connectivity timeout highlighted the importance of retry handling, so three retries with a 30-second interval were configured for the audit activities.
 
 ## 8. Project structure
 
