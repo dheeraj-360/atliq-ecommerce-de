@@ -12,7 +12,11 @@ This project takes transactional and external source data through a **Bronze →
 | **Seed-period sales validation** | **22,959** fact rows and **9,961** valid orders |
 | **Data quality** | **1,000** valid customers, **93,436** clean web events, **32** logged DQ rules in the earliest available snapshot |
 | **Reliability** | Daily **6:00 AM IST** ADF trigger, SQL audit logging, success/failure email evidence and two-run idempotency comparison |
+| **Orchestration** | ADF master pipeline invokes two ingestion branches, then `Build_Silver` |
+| **Databricks workflow** | 8 Silver notebook tasks feed `build_gold`; run history captured |
 | **Reporting** | Fabric executive view and customer/conversion analysis, including a session funnel |
+
+**Availability note:** The Azure trial credits were exhausted after implementation and verification. The live cloud environment may not be accessible; source code, saved dashboard views and execution evidence are retained in this repository.
 
 **Project repository:** [GitHub source and submission evidence](https://github.com/dheeraj-360/atliq-ecommerce-de)
 
@@ -98,6 +102,28 @@ flowchart LR
 | **Reporting** | Fabric semantic model and Power BI pages for executive metrics, product/city performance, customer behavior, and a conversion funnel. |
 | **Reliability** | ADF nightly trigger, Azure SQL pipeline audit, success/failure email notifications, idempotency checks, and GitHub Actions CI. |
 
+### ADF master pipeline orchestration
+
+The **`pl_atliq_nightly sync`** pipeline is the central orchestrator. The published **6:00 AM IST ADF schedule** starts an audited run, launches the Bronze database-ingestion and external-file-ingestion pipelines, then invokes the Databricks Job activity **`Build_Silver`**. The job handles the downstream Silver notebooks and `build_gold` task. The master pipeline follows success/failure branches to update the SQL run audit when Azure SQL is reachable.
+
+![ADF master orchestration pipeline](docs/ADF_Master_Pipeline.png)
+
+The `Build_Silver` box may appear without its Databricks icon in the ADF canvas; this is a display limitation in the captured screenshot, **not evidence that the activity was deleted**. Its job configuration should be verified using the activity settings/JSON. The ADF schedule is separate from the Databricks Job, whose captured configuration shows no independent schedule.
+
+[Scheduled ADF trigger evidence](docs/PL_Trigger_run.png) · [Run audit history](docs/idempotency/audit_log_sucessive_runs.png)
+
+### Databricks multi-task job orchestration
+
+The **`atliq_silver_pipeline` Databricks Job** is the transformation workflow that runs **eight Silver notebook tasks** for customers, products, orders, order items, payments, supplier prices, marketing data, and clickstream events. The tasks converge into **`build_gold`**, which runs after its upstream Silver tasks complete successfully.
+
+This is distinct from the **ADF 6:00 AM IST trigger**: ADF schedules and orchestrates ingestion; the Databricks job coordinates Silver processing and the Gold build. Its own **Schedules & Triggers** section shows *None* in the captured configuration, so it should **not** be described as independently scheduled.
+
+![Databricks Silver and Gold job task graph](docs/Databricks_Job_Tasks.png)
+
+[Databricks job execution history](docs/Databricks_Job_Runs.png) · [Version-controlled job configuration](databricks/jobs/atliq_silver_pipeline.yml)
+
+The captured run history includes successful manually launched runs (including **12 November 2026**) and one failed run on **11 November 2026**. Those logs establish execution evidence; they do not by themselves establish how each run was triggered by ADF.
+
 ### Executive dashboard preview
 
 ![AtliQ Commerce executive dashboard](docs/AtliQ_Executive_Overview.png)
@@ -179,7 +205,7 @@ atliq-ecommerce-de/
 │   └── jobs/                # Exported job configuration
 ├── atliq_gold/              # dbt project, models and tests
 ├── fabric/                  # Power BI report (.pbix)
-├── docs/                    # Architecture, DQ report, validation evidence
+├── docs/                    # Architecture, ADF & Databricks job, DQ and other evidence
 ├── .github/workflows/       # dbt CI workflow
 ├── .env.example             # Safe environment-variable template
 └── README.md
@@ -207,7 +233,7 @@ Create a local `.env` using `.env.example` if the example file is present. Do no
 python scripts/daily_order_simulator.py --orders 20 --update-existing 5
 ```
 
-**3. Run ingestion and transformations:** Trigger the configured ADF master pipeline (`pl_atliq_nightly sync`) or use its daily schedule; check downstream Databricks Silver job execution and build the dbt Gold project using the configured target.
+**3. Run ingestion and transformations:** Trigger the configured ADF master pipeline (`pl_atliq_nightly sync`) or use its daily schedule; verify the `atliq_silver_pipeline` Databricks job (eight Silver tasks followed by `build_gold`) and its run status; if needed, run dbt Gold separately using the configured target.
 
 **4. Build and test dbt:** From `atliq_gold/`, with Databricks connection environment variables configured:
 
@@ -220,7 +246,7 @@ Use the `ci` target for validation; the production Gold target is separate. Open
 
 ## 10. Submission artifacts
 
-The `main` branch contains the source implementation, including ADF definitions, Databricks notebooks/job configuration, dbt models/tests, the Fabric PBIX, and supporting documentation. The `docs/` directory also contains [CI evidence](docs/CI-CD_test.png), [idempotency comparison](docs/idempotency/Results_before_after_run_same.png), [scheduled trigger evidence](docs/PL_Trigger_run.png), monitoring alerts and dashboard images. Most screenshots are kept as separate linked files; only the architecture and one executive dashboard screenshot are embedded for quick review.
+The `main` branch contains the source implementation, including ADF definitions, Databricks notebooks/job configuration, dbt models/tests, the Fabric PBIX, and supporting documentation. The `docs/` directory also contains [CI evidence](docs/CI-CD_test.png), [idempotency comparison](docs/idempotency/Results_before_after_run_same.png), [scheduled trigger evidence](docs/PL_Trigger_run.png), monitoring alerts and dashboard images. The architecture, ADF orchestration, Databricks job graph and one executive dashboard image are embedded for quick review; the remaining screenshots are linked.
 
 **More evidence:** [PR merge](docs/PR_merge.png) | [SQL audit runs](docs/idempotency/audit_log_sucessive_runs.png) | [DQ log CSV](docs/DQ_Log/dq_log_seed.csv) | [Architecture write-up](docs/DE_Architecture/AtliQ_Architecture_One_Page.docx).
 
