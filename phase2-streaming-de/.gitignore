@@ -1,0 +1,13 @@
+.env
+**/.env
+venv/
+**/venv/
+.venv/
+**/.venv/
+__pycache__/
+*.pyc
+.last_order_id
+**/.last_order_id
+logs/
+**/logs/
+*.log
